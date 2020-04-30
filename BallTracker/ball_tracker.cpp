@@ -17,7 +17,7 @@ std::vector<cv::Point>& getMaxArea(std::vector<std::vector<cv::Point>>& list) {
 }
 } //anonymous namespace
 
-namespace foosball {
+namespace balltracker {
 
 std::chrono::milliseconds BallTracker::extrapolatingDuration = std::chrono::seconds(1);
 

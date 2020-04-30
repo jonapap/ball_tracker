@@ -5,7 +5,7 @@
 
 #include "opencv2/core.hpp"
 
-namespace foosball {
+namespace balltracker {
 
 /*
 Holds information about the ball.

@@ -7,7 +7,7 @@
 
 #include "ball_information.h"
 
-namespace foosball {
+namespace balltracker {
 
 enum class TrackedState {
 	TRACKED, //ball is visible and all information is available
