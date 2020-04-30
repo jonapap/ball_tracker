@@ -2,12 +2,7 @@
 #define FOOSBALL_H
 
 
-int main();
+int main(int argc, char* argv[]);
 
-namespace  {
-
-
-
-}
 
 #endif
