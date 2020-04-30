@@ -1,6 +1,8 @@
 #ifndef BALL_TRACKER_H
 #define BALL_TRACKER_H
 
+#include "chrono"
+
 #include "opencv2/core.hpp"
 
 #include "ball_information.h"
@@ -37,7 +39,18 @@ public:
 	void writeInformationOnImage(cv::Mat& image);
 
 
+	/*
+	Returns the ball information when the ball was last seen
+	*/
 	BallInformation getBallInformation() const;
+
+	/*
+	Uses previous ball information to extrapolate where the ball 
+	is at the present time. This function can be called regardless 
+	of the current state, but it may or may not give relevent data 
+	if the state is not EXTRAPOLATING.
+	*/
+	BallInformation getExtrapolatedBallInformation() const;
 	
 private:
 	//Lower and higher threshold in HSV for the ball
@@ -49,8 +62,12 @@ private:
 	//Current tracking state
 	TrackedState state = TrackedState::NOT_TRACKED;
 
-	//Last known position + direction vector of the ball
+	//Last known information of the ball
 	BallInformation ball;
+	bool previouslySeen = false;
+
+	//How long to extrapolate the ball's position before switching to NOT_TRACKED
+	static std::chrono::milliseconds extrapolatingDuration;
 };
 
 }
