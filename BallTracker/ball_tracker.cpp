@@ -2,6 +2,9 @@
 
 #include "opencv2/imgproc.hpp"
 
+#include "iostream"
+
+
 namespace {
 std::vector<cv::Point>& getMaxArea(std::vector<std::vector<cv::Point>>& list) {
 	std::vector<cv::Point>* maxVector = nullptr;
@@ -19,28 +22,37 @@ std::vector<cv::Point>& getMaxArea(std::vector<std::vector<cv::Point>>& list) {
 
 namespace balltracker {
 
-std::chrono::milliseconds BallTracker::extrapolatingDuration = std::chrono::seconds(1);
+std::chrono::duration<float> BallTracker::extrapolatingDuration = std::chrono::milliseconds(1500);
+std::chrono::duration<float> BallTracker::speedDuration = std::chrono::milliseconds(500);
 
 
-BallTracker::BallTracker(const cv::Scalar& low, const cv::Scalar& high) : ballLowHSV(low), ballHighHSV(high) {
+BallTracker::BallTracker(const cv::Scalar& low, const cv::Scalar& high, double inputFPS) : ballLowHSV(low), ballHighHSV(high), maxBufferSize((int)(inputFPS*speedDuration.count())) {
 }
 
 BallInformation BallTracker::getBallInformation() const {
-	return ball;
+	if (ballBuffer.empty()) {
+		return BallInformation();
+	}
+
+	return ballBuffer.back();
 }
 
 BallInformation BallTracker::getExtrapolatedBallInformation() const {
-	BallInformation currentBall = ball;
+	if (state != TrackedState::EXTRAPOLATING) {
+		return BallInformation();
+	}
+
+	BallInformation extraBall = ballBuffer.back();
 
 	auto now = std::chrono::steady_clock::now();
-	auto deltaTime = std::chrono::duration_cast<std::chrono::milliseconds>(now - ball.time);
+	auto deltaTime = std::chrono::duration_cast<std::chrono::duration<float>>(now - extraBall.time);
 
-	currentBall.center.x = ball.center.x + ball.speedx * deltaTime.count();
-	currentBall.center.y = ball.center.y + ball.speedy * deltaTime.count();
+	extraBall.center.x = extraBall.center.x + extraBall.speedx * deltaTime.count();
+	extraBall.center.y = extraBall.center.y + extraBall.speedy * deltaTime.count();
 
-	currentBall.time = now;
+	extraBall.time = now;
 
-	return currentBall;
+	return extraBall;
 }
 
 
@@ -75,33 +87,46 @@ TrackedState BallTracker::update(const cv::Mat& frame) {
 	}
 
 	//next part calculates the ball speed based on previous information
-
+	
 	auto now = std::chrono::steady_clock::now();
-	auto deltaTime = std::chrono::duration_cast<std::chrono::milliseconds>(now - ball.time);
+
+	currentBall.time = now;
+
 
 	state = TrackedState::NOT_TRACKED;
+	if (!ballBuffer.empty()) {
 
-	if (foundBall && previouslySeen) { //if we just found the ball and we have seen it previously
-		currentBall.speedx = (currentBall.center.x - ball.center.x) / deltaTime.count();
-		currentBall.speedy = (currentBall.center.y - ball.center.y) / deltaTime.count();
+		const BallInformation& pastBall = ballBuffer.front();
 
-		state = TrackedState::TRACKED;
-	}
-	else if (!foundBall && previouslySeen) { //if the ball has not been found but it was seen previously
-		if (deltaTime < extrapolatingDuration){ //if we are within the time limit
-			state = TrackedState::EXTRAPOLATING;
+		auto deltaTime = std::chrono::duration_cast<std::chrono::duration<float>>(now - pastBall.time);
+		std::cout << deltaTime.count() << std::endl;
+
+		if (foundBall) {
+
+			currentBall.speedx = (currentBall.center.x - pastBall.center.x) / deltaTime.count();
+			currentBall.speedy = (currentBall.center.y - pastBall.center.y) / deltaTime.count();
+
+			state = TrackedState::TRACKED;
 		}
+		else if (deltaTime < extrapolatingDuration) {
+			state = TrackedState::EXTRAPOLATING;
+		} 
 		else {
-			previouslySeen = false;
+			std::queue<BallInformation> empty;
+			std::swap(ballBuffer, empty); //empty the buffer
+			
 			state = TrackedState::NOT_TRACKED;
 		}
 	}
 
 	if (foundBall) {
-		currentBall.time = now;
-		ball = currentBall;
+		ballBuffer.push(currentBall);
 
-		previouslySeen = true;
+		state = TrackedState::TRACKED;
+	}
+
+	if (ballBuffer.size() > maxBufferSize) {
+		ballBuffer.pop();
 	}
 
 	return state;
@@ -109,6 +134,7 @@ TrackedState BallTracker::update(const cv::Mat& frame) {
 
 void BallTracker::writeInformationOnImage(cv::Mat& image) {
 	if (state == TrackedState::TRACKED) {
+		BallInformation& ball = ballBuffer.back();
 		cv::circle(image, ball.center, (int)ball.radius, cv::Scalar(255, 255, 255));
 		cv::circle(image, ball.center, 5, cv::Scalar(255, 255, 255), cv::FILLED);
 	
@@ -126,8 +152,6 @@ void BallTracker::writeInformationOnImage(cv::Mat& image) {
 	else if (state == TrackedState::NOT_TRACKED) {
 		cv::putText(image, "Tracking State : NOT_TRACKED", cv::Point(10, 30), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 255));
 	}
-
-
 }
 
 

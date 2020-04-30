@@ -10,7 +10,7 @@
 #include "ball_tracker.h"
 
 cv::VideoCapture cap(0);
-balltracker::BallTracker tracker(cv::Scalar(0,50,50), cv::Scalar(10,255,255));
+balltracker::BallTracker tracker(cv::Scalar(0,50,50), cv::Scalar(10,255,255), cap.get(cv::CAP_PROP_FPS));
 
 int main(int argc, char *argv[]) {
 

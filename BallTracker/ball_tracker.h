@@ -2,6 +2,7 @@
 #define BALL_TRACKER_H
 
 #include "chrono"
+#include "queue"
 
 #include "opencv2/core.hpp"
 
@@ -18,7 +19,12 @@ enum class TrackedState {
 
 class BallTracker {
 public:
-	BallTracker(const cv::Scalar& low, const cv::Scalar& high);
+	/*
+	low and high represents the range of the ball's color in HSV
+	inputFPS is the fps of the input video and is used to have a 
+	specific duration when calculating the speed
+	*/
+	BallTracker(const cv::Scalar& low, const cv::Scalar& high, double inputFPS = 30);
 
 	/*
 	Designed to be called in a loop.
@@ -40,15 +46,16 @@ public:
 
 
 	/*
-	Returns the ball information when the ball was last seen
+	Returns the ball information when the ball was last seen.
+	If this is called when the state is NOT_TRACKED, it will
+	return a default initialized BallInformation object
 	*/
 	BallInformation getBallInformation() const;
 
 	/*
 	Uses previous ball information to extrapolate where the ball 
-	is at the present time. This function can be called regardless 
-	of the current state, but it may or may not give relevent data 
-	if the state is not EXTRAPOLATING.
+	is at the present time. This function must be called when the
+	state is EXTRAPOLATING, else invalid information will be returned
 	*/
 	BallInformation getExtrapolatedBallInformation() const;
 	
@@ -63,11 +70,18 @@ private:
 	TrackedState state = TrackedState::NOT_TRACKED;
 
 	//Last known information of the ball
-	BallInformation ball;
-	bool previouslySeen = false;
+	//BallInformation ball;
+	//bool previouslySeen = false;
+
+	std::queue<BallInformation> ballBuffer;
+	int maxBufferSize;
 
 	//How long to extrapolate the ball's position before switching to NOT_TRACKED
-	static std::chrono::milliseconds extrapolatingDuration;
+	static std::chrono::duration<float> extrapolatingDuration;
+
+	//Approximate duration between consecutive frames to get the ball's. This number
+	//assumes that the constructor's inputFPS is correct and that update() will be called at this FPS
+	static std::chrono::duration<float> speedDuration;
 };
 
 }

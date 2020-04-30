@@ -17,7 +17,7 @@ public:
 	BallInformation(cv::Point2f center, float speedx, float speedy, float radius);
 
 	cv::Point2f center;
-	float speedx = 0; //speed is in distance/milliseconds
+	float speedx = 0; //speed is in distance/second
 	float speedy = 0;
 	float radius = 0;
 
